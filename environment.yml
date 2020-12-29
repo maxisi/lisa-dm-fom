@@ -1,0 +1,20 @@
+name: lisa-dm-fom
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - astropy
+  - h5py
+  - ipython
+  - jupyterlab
+  - matplotlib
+  - numpy
+  - pandas
+  - pip
+  - python=3.7
+  - scipy
+  - seaborn
+  - parse
+  - pip:
+    - gwaxion
+    - vegas
