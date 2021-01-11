@@ -7,7 +7,6 @@ from scipy import optimize
 from astropy.cosmology import Planck13 as cosmo
 import vegas
 
-#make sure that path points to gwaxion
 import gwaxion
 
 #useful constants
@@ -77,7 +76,7 @@ def PSD_gal(f,Tobs=4):
     return Sgal
 
 
-def SNRav(hav, f, PSD, tgw, Tobs = 4, gal=True): 
+def SNRav(hav, f, PSD, tgw, Tobs = 4, gal=True, fmin=None, fmax=None): 
     '''
     Signal is of the form h(t)=h0/(1+t/tgw)*cos(\omega_gw t+\phi). Assuming a monochromatic source we approximate the SNR as SNR~2/S_n(f)\int_0^Tobs h(t)^2 (eq. 1 in https://arxiv.org/pdf/1808.07055.pdf),therefore SNR~h0*sqrt(Teff/S_n(f)) where Teff=tgw*Tobs/(tgw+Tobs). 
     For Tobs>>tgw this gives SNR~h0*sqrt(Tobs/S_n(f)) whereas for Tobs<<tgw this gives SNR~h0*sqrt(tgw/S_n(f)).
@@ -105,6 +104,12 @@ def SNRav(hav, f, PSD, tgw, Tobs = 4, gal=True):
     gal: bool
         whether to include galactic WD background noise or not (def. True).
     
+    fmin: float
+        set min frequency (def. None, use min in PSD).
+    
+    fmax: float
+        set max frequency (def. None, use max in PSD).
+    
     Returns
     -------
     SNR: float
@@ -115,8 +120,18 @@ def SNRav(hav, f, PSD, tgw, Tobs = 4, gal=True):
     Teff=tgw*Tobs_seconds/(tgw+Tobs_seconds)
     
     Sn = interpolate.interp1d(PSD[:,0],PSD[:,1])
-    fmin=min(PSD[:,0])
-    fmax=max(PSD[:,0])
+    
+    if fmin==None:
+        fmin=min(PSD[:,0])
+    elif fmin<min(PSD[:,0]):
+        raise ValueError("minimun frequency smaller than available in the PSD data. Increase fmin")
+
+    if fmax==None:
+        fmax=max(PSD[:,0])
+    elif fmax>max(PSD[:,0]):
+        raise ValueError("maximum frequency larger than available in the PSD data. Decrease fmax")
+
+        
     if f < fmin or f > fmax:
         SNR=0
         #print('input frequency outside the range: [fmin=%.2e, fmax=%.2e]. Setting SNR=0.'%(fmin,fmax))
@@ -129,7 +144,7 @@ def SNRav(hav, f, PSD, tgw, Tobs = 4, gal=True):
  
     return SNR
 
-def SNRback(OmegaGW,PSD,Tobs=4,gal=False,**kwargs):
+def SNRback(OmegaGW,PSD,Tobs=4,gal=False, fmin=None, fmax=None,**kwargs):
     '''
     Estimating the SNR of a given background in LISA using eq. 36 of https://arxiv.org/pdf/1310.5300.pdf 
     
@@ -147,6 +162,12 @@ def SNRback(OmegaGW,PSD,Tobs=4,gal=False,**kwargs):
     gal: bool
         whether to include galactic WD background noise or not (def. True).
     
+    fmin: float
+        set min frequency (def. None, use min in PSD).
+    
+    fmax: float
+        set max frequency (def. None, use max in PSD).
+    
     Accepts all options of integrate.quad()
     
     Returns
@@ -159,8 +180,16 @@ def SNRback(OmegaGW,PSD,Tobs=4,gal=False,**kwargs):
     Sn = interpolate.interp1d(PSD[:,0],PSD[:,1])
     OmegaGWint = interpolate.interp1d(OmegaGW[:,0],OmegaGW[:,1])
     
-    fmin=max(min(OmegaGW[:,0]),min(PSD[:,0]))
-    fmax=min(max(OmegaGW[:,0]),max(PSD[:,0]))
+    if fmin==None:
+        fmin=max(min(OmegaGW[:,0]),min(PSD[:,0]))
+    elif fmin<max(min(OmegaGW[:,0]),min(PSD[:,0])):
+        raise ValueError("minimun frequency outside available range. Increase fmin")
+
+    if fmax==None:
+        fmax=min(max(OmegaGW[:,0]),max(PSD[:,0]))
+    elif fmax>min(max(OmegaGW[:,0]),max(PSD[:,0])):
+        raise ValueError("maximum frequency outside available range. Decrease fmax")
+
     
     Tobs_seconds=Tobs*year
 
@@ -203,8 +232,6 @@ def SfromOmegaGW(OmegaGW):
 # FUNCTIONS to compute number of expected CW detections
 
 #TODO: generalize for vectors or tensor fields. This should only require adding those cases to the class BosonCloud in gwaxion
-#NOTE: the evolution code to get mass of the cloud only seems to work well if I set dtau=self.amplitude_growth_time/1000 (line 997 in physics.py, default was self.amplitude_growth_time/10), otherwise at very small boson masses evolution is unstable when m_b<~10^-18 eV. Ask Max to perhaps make self.amplitude_growth_time/1000 default.
-
 def dN(dn,z,log10mbh, chi_bh, m_b, PSD, Tobs=4, SNRcut=10.,lgw=2, **kwargs):
     '''
     Integrand of eq.62 in  https://arxiv.org/abs/1706.06311. This only works for scalar fields and assuming dominant l=m=1 mode for the moment. 
@@ -420,7 +447,7 @@ def dOmega(dn,f,log10mbh, chi_bh, m_b, PSD, SNRcut=10., lgw=2, **kwargs):
         SNR=SNRav(hav=hav, f=f, PSD=PSD, tgw=tgwredshift, **kwargs) #TO DO: to be fully self-consistent, SNR should also include effect of background itself, so I should put this in a loop adding the background at each step until it converges. The effect should be small though, and actually negligible in terms of deciding detectable range of boson masses, so I'll ignore this issue for the moment
     
         if SNR<SNRcut and f<fgw:
-            #if mergers==False: #decide whether it's worth adding this latter. Effect of mergers should be small
+            #if mergers==False: #decide whether it's worth adding this latter. impact of mergers should be very small anyways
             #    Nm=0
             #else:
             #    Nm=Nmergers(dNm=mergers,z=z,tgw=tform,log10mbh=log10mbh)    
