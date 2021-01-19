@@ -385,7 +385,7 @@ def Nevents(dn,m_b,PSD,intlims,method='vegas',nitn=10,neval=1e3,nsumint=30j,**kw
 
 
 # ###########################################################################
-# FUNCTIONS to stochastic background
+# FUNCTIONS to compute stochastic background
 
 def dOmega(dn,f,log10mbh, chi_bh, m_b, PSD, SNRcut=10., lgw=2, **kwargs):
     '''
