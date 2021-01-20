@@ -96,7 +96,7 @@ def SNRav(hav, f, PSD, tgw, Tobs = 4, gal=True, fmin=None, fmax=None):
         PSD (without galactic WD background noise) as a function of frequency. Format: 0: frequency; 1: PSD.
         
     tgw: float
-        half-life time of the signal
+        half-life time of the signal in the detector frame
         
     Tobs: float
         LISA observation time in years. If used with gal=True (default) only available for Tobs=0.5, 1, 2 or 4  (def. 4).
